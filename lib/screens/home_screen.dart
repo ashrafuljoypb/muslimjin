@@ -7,14 +7,11 @@ import 'package:muslimjin/screens/qibla_screen.dart';
 import 'package:muslimjin/services/prayer_times_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:muslimjin/screens/ramadhan_calendar_screen.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:intl/intl.dart';
-import 'package:muslimjin/services/adhan_service.dart';
 import 'package:muslimjin/services/notification_service.dart';
 import 'package:muslimjin/services/logger_service.dart';
 import 'package:muslimjin/screens/settings_screen.dart';
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,37 +22,24 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final PrayerTimesService _prayerTimesService = PrayerTimesService();
-  final AdhanService _adhanService = AdhanService();
   final NotificationService _notificationService = NotificationService();
-  final player = AudioPlayer();
   Map<String, dynamic>? _prayerTimes;
   bool _isLoading = true;
-  DateTime? _lastAdhanTime;
-  Timer? _adhanCheckTimer;
-  bool _adhanEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
     _notificationService.initNotification();
     _fetchPrayerTimes();
-    // Check for prayer times every minute
-    _adhanCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _checkPrayerTimes();
-    });
   }
 
   @override
   void dispose() {
-    _adhanCheckTimer?.cancel();
-    player.dispose();
     super.dispose();
   }
 
   Future<void> _fetchPrayerTimes() async {
     try {
-      await _determinePosition();
       final position = await _determinePosition();
       final prayerTimes = await _prayerTimesService.getPrayerTimes(
         position.latitude,
@@ -98,57 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return await Geolocator.getCurrentPosition();
   }
 
-  void _checkPrayerTimes() {
-    if (_prayerTimes == null) return;
-
-    final now = DateTime.now();
-    final currentTime = DateFormat('HH:mm').format(now);
-
-    _prayerTimes!.forEach((name, time) {
-      if (time == currentTime && _shouldPlayAdhan(now)) {
-        _playAdhan();
-        _lastAdhanTime = now;
-      }
-    });
-  }
-
-  bool _shouldPlayAdhan(DateTime now) {
-    if (_lastAdhanTime == null) return true;
-    return now.difference(_lastAdhanTime!).inMinutes >= 5;
-  }
-
-  Future<void> _playAdhan() async {
-    if (!_adhanEnabled) return;
-
-    try {
-      // Get city name from location (you should implement this)
-      String city = await _getCityFromLocation();
-      String adhanUrl = _adhanService.getAdhanUrl(city);
-
-      await player.play(UrlSource(adhanUrl));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Prayer time has arrived')),
-        );
-      }
-    } catch (e) {
-      LoggerService.error('Error playing Adhan', e);
-      // Fallback to local adhan file if API fails
-      await player.play(AssetSource('audio/adhan.mp3'));
-    }
-  }
-
-  Future<String> _getCityFromLocation() async {
-    try {
-      await _determinePosition();
-      // Use reverse geocoding to get city name (implement this)
-      // For now, return a default city
-      return 'Mecca';
-    } catch (e) {
-      return 'Mecca'; // Default fallback
-    }
-  }
-
   void _schedulePrayerNotifications(Map<String, dynamic> prayerTimes) {
     prayerTimes.forEach((name, time) {
       try {
@@ -172,13 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
       } catch (e) {
         LoggerService.error('Error scheduling notification', e);
       }
-    });
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _adhanEnabled = prefs.getBool('adhan_enabled') ?? true;
     });
   }
 
@@ -414,3 +340,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+

@@ -1,0 +1,18 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "dev-user",
+    "password": "dev-password",
+    "database": "dev-database"
+  },
+  "server": {
+    "port": 3000
+  },
+  "logging": {
+    "level": "debug"
+  },
+  "production": {
+    "extends": "./production.json"
+  }
+}
